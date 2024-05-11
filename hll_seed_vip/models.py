@@ -89,6 +89,9 @@ class ServerConfig(pydantic.BaseModel):
     vip_reward: timedelta
     nice_time_delta: bool
     nice_expiration_date: bool
+    vip_data_file_path: str
+    num_vips_per_session: int
+    vip_cooldown_days: int
 
     @pydantic.field_validator("base_url")
     @classmethod

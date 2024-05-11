@@ -1,3 +1,5 @@
+# Path to store and read VIP data
+vip_data_file_path: "/code/vip_data/vip_status.json"
 # The language to translate to if using the `nice_time_delta` and `nice_expiration_date` settings
 # Any valid language code shoud work, look here for examples: https://gist.github.com/jacobbubu/1836273
 # By default it is English, leave it as `null` unless you want to translate it
@@ -69,6 +71,9 @@ requirements:
     minutes: 5
     hours: 0
 vip_reward:
+  num_vips_per_session: 2  # Number of players to reward per session
+  vip_cooldown_days: 60  # Days a player must wait to be eligible for VIP again
+  vip_duration_days: 2  # Duration in days for which the VIP is valid
   # Whether to forward VIP if you use multiple game servers
   forward: true
   # The name used to add VIP in CRCON if the player isn't currently a VIP

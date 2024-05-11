@@ -9,6 +9,10 @@ import yaml
 from humanize import naturaldelta, naturaltime
 from loguru import logger
 
+import random
+from hll_seed_vip.vip_management import add_vip_player, is_eligible_for_vip, get_last_vip_granted_date
+VIP_DATA_FILE_PATH = "/code/vip_data/vip_status.json"
+
 from hll_seed_vip.constants import INDEFINITE_VIP_DATE
 from hll_seed_vip.io import add_vip, message_player
 from hll_seed_vip.models import (
@@ -91,6 +95,9 @@ def load_config(path: Path) -> ServerConfig:
         message_non_vip=player_messages["non_vip"],
         nice_time_delta=vip_reward["nice_time_delta"],
         nice_expiration_date=vip_reward["nice_expiration_date"],
+        vip_data_file_path=raw_config.get("vip_data_file_path", "/code/vip_data/vip_status.json"),
+        num_vips_per_session=vip_reward.get("num_vips_per_session", 1),
+        vip_cooldown_days=vip_reward.get("vip_cooldown_days", 60)
     )
 
 
@@ -277,7 +284,6 @@ async def message_players(
                 message=formatted_message,
             )
 
-
 async def reward_players(
     client: httpx.AsyncClient,
     config: ServerConfig,
@@ -286,33 +292,33 @@ async def reward_players(
     players_lookup: dict[str, str],
     expiration_timestamps: defaultdict[str, datetime],
 ):
-    # TODO: make concurrent
     logger.info(f"Rewarding players with VIP {config.dry_run=}")
-    logger.info(f"Total={len(to_add_vip_steam_ids)} {to_add_vip_steam_ids=}")
-    logger.debug(f"Total={len(current_vips)=} {current_vips=}")
-    for steam_id_64 in to_add_vip_steam_ids:
+    num_vips_awarded = 0
+    vip_data_file_path = config.vip_data_file_path  # Retrieve the path from configuration
+    cooldown_days = config.vip_reward['vip_cooldown_days']
+
+    eligible_vips = [
+        sid for sid in to_add_vip_steam_ids
+        if is_eligible_for_vip(sid, config.vip_data_file_path, cooldown_days) and not has_indefinite_vip(current_vips.get(sid))
+    ]
+
+    random.shuffle(eligible_vips)  # Shuffle to randomize selection
+
+    for steam_id_64 in eligible_vips:
+        if num_vips_awarded >= config.vip_reward['num_vips_per_session']:
+            break
+
         player = current_vips.get(steam_id_64)
-        expiration_date = expiration_timestamps[steam_id_64]
-
-        if has_indefinite_vip(player):
-            logger.info(
-                f"{config.dry_run=} Skipping! pre-existing indefinite VIP for {steam_id_64=} {player=} {vip_name=} {expiration_date=}"
-            )
-            continue
-
         vip_name = (
-            player.player.name
-            if player
-            else format_vip_reward_name(
+            player.player.name if player else format_vip_reward_name(
                 players_lookup.get(steam_id_64, "No player name found"),
                 format_str=config.player_name_not_current_vip,
             )
         )
+        expiration_date = datetime.now(timezone.utc) + timedelta(days=config.vip_reward['vip_duration_days'])
 
         if not config.dry_run:
-            logger.info(
-                f"{config.dry_run=} adding VIP to {steam_id_64=} {player=} {vip_name=} {expiration_date=}",
-            )
+            logger.info(f"Adding VIP to {steam_id_64=} {vip_name=}")
             await add_vip(
                 client=client,
                 server_url=config.base_url,
@@ -321,12 +327,17 @@ async def reward_players(
                 expiration_timestamp=expiration_date,
                 forward=config.forward,
             )
-
-        else:
-            logger.info(
-                f"{config.dry_run=} adding VIP to {steam_id_64=} {player=} {vip_name=} {expiration_date=}",
+            add_vip_player(steam_id_64, player.player.name, vip_data_file_path, config.vip_reward['vip_duration_days'])  # Record the VIP grant
+            await message_players(
+                client=client,
+                config=config,
+                message=config.message_reward,
+                steam_ids=[steam_id_64],
+                expiration_timestamps={steam_id_64: expiration_date}
             )
-
+            num_vips_awarded += 1
+        else:
+            logger.info(f"Dry run: VIP would have been added to {steam_id_64=} {vip_name=}")
 
 def get_next_player_bucket(
     player_buckets: Sequence[int],
