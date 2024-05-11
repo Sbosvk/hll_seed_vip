@@ -16,3 +16,5 @@ services:
         build:
           context: .
           dockerfile: ./Dockerfile
+volumes:
+    - vip_data:/code/vip_data
