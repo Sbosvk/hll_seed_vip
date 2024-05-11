@@ -17,6 +17,6 @@ services:
         build:
           context: .
           dockerfile: ./Dockerfile
-          
+
 volumes:
-    - vip_data
+    - vip_data: {}
