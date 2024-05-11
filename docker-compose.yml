@@ -11,6 +11,7 @@ services:
         volumes:
             - ${LOG_DIR}:/code/logs
             - ${CONFIG_DIR}:/code/config
+            - vip_data:/code/vip_data
         restart: unless-stopped
         image: ${DOCKER_REPOSITORY}:${DOCKER_TAG}
         build:
