@@ -11,7 +11,6 @@ from loguru import logger
 
 import random
 from hll_seed_vip.vip_management import add_vip_player, is_eligible_for_vip, get_last_vip_granted_date
-VIP_DATA_FILE_PATH = "/code/vip_data/vip_status.json"
 
 from hll_seed_vip.constants import INDEFINITE_VIP_DATE
 from hll_seed_vip.io import add_vip, message_player
