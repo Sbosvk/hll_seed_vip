@@ -1,4 +1,3 @@
-name: hll_seed_vip
 services:
     hll_seed_vip:
         environment:
